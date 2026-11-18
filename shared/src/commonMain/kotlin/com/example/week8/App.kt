@@ -5,11 +5,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.Color
@@ -25,6 +28,45 @@ fun StudentList(students: List<Student>) {
     }
 }
 
+// Task 8 - Student type dropdown
+@Composable
+fun DropdownList(
+    items: List<String>,
+    selectedItem: String,
+    onItemSelected: (String) -> Unit
+) {
+    val dropDownVisible = remember {
+        mutableStateOf(false)
+    }
+
+    Box {
+        Button(
+            onClick = {
+                dropDownVisible.value = true
+            }
+        ) {
+            Text(selectedItem)
+        }
+
+        DropdownMenu(
+            expanded = dropDownVisible.value,
+            onDismissRequest = {
+                dropDownVisible.value = false
+            }
+        ) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item) },
+                    onClick = {
+                        onItemSelected(item)
+                        dropDownVisible.value = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 // Task 5 - Add student using a callback
 @Composable
 fun AddStudent(onStudentAdded: (Student) -> Unit) {
@@ -34,6 +76,11 @@ fun AddStudent(onStudentAdded: (Student) -> Unit) {
     val courseState = remember { mutableStateOf("") }
     val markState = remember { mutableStateOf("") }
     val errorState = remember { mutableStateOf("") }
+
+    // Task 8 - Selected student type
+    val studentType = remember {
+        mutableStateOf("Undergraduate")
+    }
 
     Column {
         OutlinedTextField(
@@ -64,6 +111,17 @@ fun AddStudent(onStudentAdded: (Student) -> Unit) {
             label = { Text("Mark") }
         )
 
+        // Task 8 - Choose student type
+        Text("Select student type")
+
+        DropdownList(
+            items = listOf("Undergraduate", "Masters"),
+            selectedItem = studentType.value,
+            onItemSelected = {
+                studentType.value = it
+            }
+        )
+
         Button(
             onClick = {
                 val mark = markState.value.toIntOrNull()
@@ -77,15 +135,25 @@ fun AddStudent(onStudentAdded: (Student) -> Unit) {
                     errorState.value =
                         "Enter a valid mark between 0 and 100"
                 } else {
-                    val student = Undergraduate(
-                        idState.value,
-                        nameState.value,
-                        courseState.value
-                    )
+
+                    // Task 8 - Create the correct student type
+                    val student: Student =
+                        if (studentType.value == "Undergraduate") {
+                            Undergraduate(
+                                idState.value,
+                                nameState.value,
+                                courseState.value
+                            )
+                        } else {
+                            Masters(
+                                idState.value,
+                                nameState.value,
+                                courseState.value
+                            )
+                        }
 
                     student.mark = mark
 
-                    // Send student back to App
                     onStudentAdded(student)
 
                     idState.value = ""
@@ -103,11 +171,40 @@ fun AddStudent(onStudentAdded: (Student) -> Unit) {
     }
 }
 
+// Task 7 - Search students by course
+@Composable
+fun SearchByCourse(onCourseEntered: (String) -> Unit) {
+
+    val courseState = remember { mutableStateOf("") }
+
+    Column {
+        Text("Enter course")
+
+        OutlinedTextField(
+            value = courseState.value,
+            onValueChange = { courseState.value = it },
+            singleLine = true
+        )
+
+        Button(
+            onClick = {
+                onCourseEntered(courseState.value)
+            }
+        ) {
+            Text("Search")
+        }
+    }
+}
+
 // Main application
 @Composable
 fun App() {
 
-    // Task 1 - Student state list
+    // Task 6 - University object
+    val university = remember {
+        University()
+    }
+
     val studentList = remember {
         mutableStateListOf<Student>()
     }
@@ -116,12 +213,36 @@ fun App() {
         Column {
             Text("University Student Management")
 
-            // Task 5 - Receive student through callback
             AddStudent(
-                onStudentAdded = {
-                    studentList.add(it)
+                onStudentAdded = { student ->
+
+                    university.addStudent(student)
+
+                    studentList.clear()
+                    studentList.addAll(university.studentList)
                 }
             )
+
+            // Task 7 - Search by course
+            SearchByCourse(
+                onCourseEntered = { course ->
+
+                    val matches =
+                        university.findStudentsByCourse(course)
+
+                    studentList.clear()
+                    studentList.addAll(matches)
+                }
+            )
+
+            Button(
+                onClick = {
+                    studentList.clear()
+                    studentList.addAll(university.studentList)
+                }
+            ) {
+                Text("Show All Students")
+            }
 
             Text("Number of students: ${studentList.size}")
 
